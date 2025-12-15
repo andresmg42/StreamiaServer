@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: streamia
+  labels:
+    app: streamia
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: streamia-infra
+  labels:
+    app: streamia
+    component: infrastructure
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: streamia-monitoring
+  labels:
+    app: streamia
+    component: monitoring

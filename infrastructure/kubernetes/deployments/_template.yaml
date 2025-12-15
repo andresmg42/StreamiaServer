@@ -1,0 +1,88 @@
+# ============================================
+# PLANTILLA PARA NUEVO MICROSERVICIO
+# ============================================
+# Para usar:
+#   1. Copiar este archivo: cp _template.yaml <nombre-servicio>.yaml
+#   2. Reemplazar <SERVICE_NAME> con el nombre (ej: movie-service)
+#   3. Reemplazar <PORT> con el puerto (ej: 3002)
+#   4. Reemplazar <MONGODB_KEY> con la key del secret (ej: MONGODB_URI_MOVIES)
+#   5. Agregar el archivo a kustomization.yaml
+# ============================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: <SERVICE_NAME>
+  namespace: streamia
+  labels:
+    app: streamia
+    service: <SERVICE_NAME>
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: streamia
+      service: <SERVICE_NAME>
+  template:
+    metadata:
+      labels:
+        app: streamia
+        service: <SERVICE_NAME>
+    spec:
+      containers:
+        - name: <SERVICE_NAME>
+          image: streamia/<SERVICE_NAME>:latest
+          ports:
+            - containerPort: <PORT>
+          # Carga ConfigMap + Secrets automáticamente
+          envFrom:
+            - configMapRef:
+                name: streamia-config
+            - secretRef:
+                name: streamia-secrets
+          env:
+            # Variables específicas del servicio
+            - name: PORT
+              value: "<PORT>"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: streamia-secrets
+                  key: <MONGODB_KEY>
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: <PORT>
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: <PORT>
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: <SERVICE_NAME>
+  namespace: streamia
+  labels:
+    app: streamia
+    service: <SERVICE_NAME>
+spec:
+  selector:
+    app: streamia
+    service: <SERVICE_NAME>
+  ports:
+    - port: <PORT>
+      targetPort: <PORT>
+      protocol: TCP
+  type: ClusterIP

@@ -1,0 +1,37 @@
+version: '3.8'
+
+# Development-only docker-compose override
+# This file is automatically loaded alongside docker-compose.yml
+
+services:
+  mongodb:
+    ports:
+      - "27017:27017"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  api-gateway:
+    build:
+      context: ../gateway/express-gateway
+      dockerfile: Dockerfile
+    volumes:
+      - ../gateway/express-gateway/src:/app/src:ro
+    environment:
+      NODE_ENV: development
+
+  user-service:
+    build:
+      context: ..
+      dockerfile: services/user-service/Dockerfile
+    volumes:
+      - ../services/user-service/src:/app/src:ro
+      - ../shared/src:/app/shared/src:ro
+    environment:
+      NODE_ENV: development

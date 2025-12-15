@@ -1,0 +1,239 @@
+### =============================================
+### Streamia User Service - HTTP Requests
+### =============================================
+### Usar con la extensión REST Client de VS Code
+### =============================================
+
+@baseUrl = http://localhost:3001/api/v1
+@contentType = application/json
+
+### Variables (actualizar después de login)
+@accessToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTNmOWJlMzU1ODZmNmQwMWRlZDJhN2QiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJpYXQiOjE3NjU3NzY1NTIsImV4cCI6MTc2NTc3NzQ1Mn0.4X_DBlf4vT7lcBsUFYOj2omPvZ-3BD8vFobEfP8fFLo
+@refreshToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTNmOWJlMzU1ODZmNmQwMWRlZDJhN2QiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJpYXQiOjE3NjU3NzY1NTIsImV4cCI6MTc2NjM4MTM1Mn0.qBCIxIu8XE9onOUPTYrDtVJM3N5VmDnKowzZJsWd9LY
+
+### =============================================
+### Health Checks
+### =============================================
+
+### Health Check básico
+GET http://localhost:3001/health
+
+###
+
+### Liveness Probe
+GET http://localhost:3001/health/live
+
+###
+
+### Readiness Probe
+GET http://localhost:3001/health/ready
+
+### =============================================
+### Authentication - Registro
+### =============================================
+
+### Registrar nuevo usuario
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "username": "testuser",
+  "password": "password123"
+}
+
+###
+
+### Registrar segundo usuario (para pruebas)
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "john@example.com",
+  "username": "johndoe",
+  "password": "securePass456"
+}
+
+### =============================================
+### Authentication - Login
+### =============================================
+
+### Login con usuario existente
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+###
+
+### Login con credenciales inválidas (debe fallar)
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "password": "wrongpassword"
+}
+
+###
+
+### Login con email no registrado (debe fallar)
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "noexiste@example.com",
+  "password": "password123"
+}
+
+### =============================================
+### Authentication - Refresh Token
+### =============================================
+
+### Refrescar access token
+POST {{baseUrl}}/auth/refresh
+Content-Type: {{contentType}}
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+### =============================================
+### Authentication - Logout
+### =============================================
+
+### Logout (requiere autenticación)
+POST {{baseUrl}}/auth/logout
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+### =============================================
+### Password Recovery
+### =============================================
+
+### Solicitar reset de contraseña
+POST {{baseUrl}}/auth/forgot-password
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com"
+}
+
+###
+
+### Reset de contraseña (necesita token válido del email)
+POST {{baseUrl}}/auth/reset-password
+Content-Type: {{contentType}}
+
+{
+  "token": "TOKEN_FROM_EMAIL_HERE",
+  "password": "newSecurePassword123"
+}
+
+### =============================================
+### User Profile
+### =============================================
+
+### Obtener perfil del usuario autenticado
+GET {{baseUrl}}/users/profile
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Actualizar perfil - solo username
+PUT {{baseUrl}}/users/profile
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{
+  "username": "newusername"
+}
+
+###
+
+### Actualizar perfil - solo avatar
+PUT {{baseUrl}}/users/profile
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{
+  "avatar": "https://example.com/avatar.png"
+}
+
+###
+
+### Actualizar perfil - username y avatar
+PUT {{baseUrl}}/users/profile
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{
+  "username": "updateduser",
+  "avatar": "https://example.com/new-avatar.jpg"
+}
+
+### =============================================
+### Delete Account
+### =============================================
+
+### Eliminar cuenta (¡CUIDADO! Acción irreversible)
+DELETE {{baseUrl}}/users/account
+Authorization: Bearer {{accessToken}}
+
+### =============================================
+### Error Cases - Validación
+### =============================================
+
+### Registro con email inválido
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "invalid-email",
+  "username": "testuser",
+  "password": "password123"
+}
+
+###
+
+### Registro con username muy corto
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "valid@example.com",
+  "username": "ab",
+  "password": "password123"
+}
+
+###
+
+### Registro con password muy corto
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "valid@example.com",
+  "username": "validuser",
+  "password": "123"
+}
+
+###
+
+### Acceso sin token (debe fallar con 401)
+GET {{baseUrl}}/users/profile
+
+###
+
+### Acceso con token inválido (debe fallar con 401)
+GET {{baseUrl}}/users/profile
+Authorization: Bearer invalid_token_here
+

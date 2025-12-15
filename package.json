@@ -1,0 +1,34 @@
+{
+  "name": "streamia-microservices",
+  "version": "1.0.0",
+  "description": "Streamia - Plataforma de streaming con arquitectura de microservicios",
+  "private": true,
+  "workspaces": [
+    "services/*",
+    "gateway/*",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "docker-compose -f infrastructure/docker-compose.yml up -d && concurrently \"npm run dev:user\" \"npm run dev:gateway\"",
+    "dev:user": "npm run dev --workspace=services/user-service",
+    "dev:movie": "npm run dev --workspace=services/movie-service",
+    "dev:favorites": "npm run dev --workspace=services/favorites-service",
+    "dev:rating": "npm run dev --workspace=services/rating-service",
+    "dev:comment": "npm run dev --workspace=services/comment-service",
+    "dev:notification": "npm run dev --workspace=services/notification-service",
+    "dev:gateway": "npm run dev --workspace=gateway/express-gateway",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "docker:up": "docker-compose -f infrastructure/docker-compose.yml up -d",
+    "docker:down": "docker-compose -f infrastructure/docker-compose.yml down",
+    "docker:logs": "docker-compose -f infrastructure/docker-compose.yml logs -f"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -1,0 +1,45 @@
+# ============================================
+# STREAMIA - Kustomize Configuration
+# ============================================
+# Genera ConfigMaps y Secrets desde archivos .env
+#
+# Comandos:
+#   kubectl kustomize .          # Preview
+#   kubectl apply -k .           # Deploy
+#   kubectl delete -k .          # Remove
+#
+# Para agregar un nuevo microservicio:
+#   1. Crear deployments/<service>.yaml
+#   2. Agregar a la lista de resources abajo
+# ============================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespaces/namespaces.yaml
+  - deployments/user-service.yaml
+  - deployments/api-gateway.yaml
+  - ingress/ingress.yaml
+  # Agregar nuevos servicios aquí:
+  # - deployments/movie-service.yaml
+  # - deployments/favorites-service.yaml
+
+# ConfigMap: Variables NO sensibles
+configMapGenerator:
+  - name: streamia-config
+    namespace: streamia
+    envs:
+      - .env.config
+    options:
+      disableNameSuffixHash: true
+
+# Secret: Variables SENSIBLES
+secretGenerator:
+  - name: streamia-secrets
+    namespace: streamia
+    envs:
+      - .env.secrets
+    options:
+      disableNameSuffixHash: true
+

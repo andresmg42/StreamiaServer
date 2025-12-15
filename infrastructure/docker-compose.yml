@@ -1,0 +1,185 @@
+version: '3.8'
+
+services:
+  # ===========================================
+  # Infrastructure Services
+  # ===========================================
+  
+  # MongoDB - Primary database
+  mongodb:
+    image: mongo:7
+    container_name: streamia-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: streamia
+      MONGO_INITDB_ROOT_PASSWORD: streamia_secret
+    volumes:
+      - mongodb_data:/data/db
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    networks:
+      - streamia-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis - Caching and sessions
+  redis:
+    image: redis:7-alpine
+    container_name: streamia-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - streamia-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ - Message broker for choreography
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: streamia-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: streamia
+      RABBITMQ_DEFAULT_PASS: streamia
+      RABBITMQ_DEFAULT_VHOST: /
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - streamia-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # API Gateway
+  # ===========================================
+  
+  api-gateway:
+    build:
+      context: ../gateway/express-gateway
+      dockerfile: Dockerfile
+    container_name: streamia-api-gateway
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      USER_SERVICE_URL: http://user-service:3001
+      MOVIE_SERVICE_URL: http://movie-service:3002
+      FAVORITES_SERVICE_URL: http://favorites-service:3003
+      RATING_SERVICE_URL: http://rating-service:3004
+      COMMENT_SERVICE_URL: http://comment-service:3005
+      NOTIFICATION_SERVICE_URL: http://notification-service:3006
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - streamia-network
+
+  # ===========================================
+  # Microservices
+  # ===========================================
+
+  # User Service
+  user-service:
+    build:
+      context: ..
+      dockerfile: services/user-service/Dockerfile
+    container_name: streamia-user-service
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      MONGODB_URI: mongodb://streamia:streamia_secret@mongodb:27017/streamia_users?authSource=admin
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://streamia:streamia@rabbitmq:5672
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your-super-secret-refresh-key-change-in-production}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - streamia-network
+
+  # Movie Service (placeholder - uses same base as user service)
+  # movie-service:
+  #   build:
+  #     context: ..
+  #     dockerfile: services/movie-service/Dockerfile
+  #   container_name: streamia-movie-service
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3002:3002"
+  #   environment:
+  #     NODE_ENV: development
+  #     PORT: 3002
+  #     MONGODB_URI: mongodb://streamia:streamia_secret@mongodb:27017/streamia_movies?authSource=admin
+  #     REDIS_URL: redis://redis:6379
+  #     RABBITMQ_URL: amqp://streamia:streamia@rabbitmq:5672
+  #   depends_on:
+  #     mongodb:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
+  #   networks:
+  #     - streamia-network
+
+  # Favorites Service (placeholder)
+  # favorites-service:
+  #   ...
+
+  # Rating Service (placeholder)
+  # rating-service:
+  #   ...
+
+  # Comment Service (placeholder)
+  # comment-service:
+  #   ...
+
+  # Notification Service (placeholder)
+  # notification-service:
+  #   ...
+
+# ===========================================
+# Networks
+# ===========================================
+networks:
+  streamia-network:
+    driver: bridge
+
+# ===========================================
+# Volumes
+# ===========================================
+volumes:
+  mongodb_data:
+  redis_data:
+  rabbitmq_data:
