@@ -18,11 +18,17 @@ COPY services/user-service/package*.json ./
 COPY services/user-service/tsconfig.json ./
 COPY services/user-service/src ./src
 
+# Update shared package reference to use local path
+RUN npm pkg set dependencies.@streamia/shared="file:../../shared"
+
 # Install dependencies
 RUN npm install
 
 # Build service
 RUN npm run build
+
+# Prune dev dependencies for production
+RUN npm prune --omit=dev
 
 # Production stage
 FROM node:20-alpine AS production
@@ -33,12 +39,15 @@ WORKDIR /app
 COPY --from=builder /app/shared/dist ./shared/dist
 COPY --from=builder /app/shared/package*.json ./shared/
 
-# Copy built service
+# Copy built service and pruned node_modules
 COPY --from=builder /app/services/user-service/dist ./dist
 COPY --from=builder /app/services/user-service/package*.json ./
+COPY --from=builder /app/services/user-service/node_modules ./node_modules
 
-# Install production dependencies only
-RUN npm install --only=production
+# Fix the @streamia/shared - copy the actual files instead of symlink
+RUN rm -rf node_modules/@streamia/shared && \
+    mkdir -p node_modules/@streamia/shared && \
+    cp -r /app/shared/* node_modules/@streamia/shared/
 
 # Set environment
 ENV NODE_ENV=production

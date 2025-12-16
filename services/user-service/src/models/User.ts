@@ -58,14 +58,11 @@ const userSchema = new Schema<IUser>(
     timestamps: true,
     toJSON: {
       transform: (_doc, ret) => {
-        ret.id = ret._id.toString();
-        delete ret._id;
-        delete ret.__v;
-        delete ret.password;
-        delete ret.resetPasswordToken;
-        delete ret.resetPasswordExpires;
-        delete ret.refreshTokens;
-        return ret;
+        const { _id, __v, password, resetPasswordToken, resetPasswordExpires, refreshTokens, ...rest } = ret;
+        return {
+          id: _id.toString(),
+          ...rest,
+        };
       },
     },
   }

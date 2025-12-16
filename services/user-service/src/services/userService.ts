@@ -294,13 +294,17 @@ export class UserService {
       email: user.email,
     };
 
-    const accessToken = jwt.sign(payload, config.jwt.secret, {
-      expiresIn: config.jwt.expiresIn,
-    });
+    const accessToken = jwt.sign(
+      payload, 
+      config.jwt.secret, 
+      { expiresIn: config.jwt.expiresIn } as jwt.SignOptions
+    );
 
-    const refreshToken = jwt.sign(payload, config.jwt.refreshSecret, {
-      expiresIn: config.jwt.refreshExpiresIn,
-    });
+    const refreshToken = jwt.sign(
+      payload, 
+      config.jwt.refreshSecret, 
+      { expiresIn: config.jwt.refreshExpiresIn } as jwt.SignOptions
+    );
 
     // Store refresh token
     user.refreshTokens.push(refreshToken);

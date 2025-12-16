@@ -57,17 +57,29 @@ export function circuitBreakerMiddleware(
     }
 
     // Store original end function
-    const originalEnd = res.end;
+    const originalEnd = res.end.bind(res);
 
     // Override end to track failures
-    res.end = function (...args: Parameters<typeof res.end>) {
+    res.end = function (
+      this: Response,
+      chunk?: any,
+      encodingOrCb?: BufferEncoding | (() => void),
+      cb?: () => void
+    ): Response {
       if (res.statusCode >= 500) {
         recordFailure(serviceName, opts);
       } else if (res.statusCode < 400) {
         recordSuccess(serviceName);
       }
-      return originalEnd.apply(res, args);
-    };
+      
+      if (typeof encodingOrCb === 'function') {
+        return originalEnd(chunk, encodingOrCb);
+      }
+      if (encodingOrCb !== undefined) {
+        return originalEnd(chunk, encodingOrCb, cb);
+      }
+      return originalEnd(chunk, cb);
+    } as typeof res.end;
 
     next();
   };
