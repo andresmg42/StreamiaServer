@@ -20,7 +20,7 @@ resources:
   - namespaces/namespaces.yaml
   - deployments/user-service.yaml
   - deployments/api-gateway.yaml
-  - ingress/ingress.yaml
+  # - ingress/ingress.yaml
   # Agregar nuevos servicios aquí:
   # - deployments/movie-service.yaml
   # - deployments/favorites-service.yaml

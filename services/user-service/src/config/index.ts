@@ -5,7 +5,7 @@ import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // Fallback: try loading from current working directory
-if (!process.env.MONGODB_URI) {
+if (!process.env.MONGODB_URI_USER) {
   dotenv.config();
 }
 
@@ -16,7 +16,7 @@ export const config = {
   serviceName: 'user-service',
 
   // MongoDB
-  mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/streamia_users',
+  mongodbUri: process.env.MONGODB_URI_USER || 'mongodb://localhost:27017/streamia_users',
 
   // Redis
   redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
