@@ -4,6 +4,11 @@ services:
   # ===========================================
   
   # MongoDB - Primary database
+ # ===========================================
+  # Infrastructure Services
+  # ===========================================
+  
+  # MongoDB
   mongodb:
     image: mongo:7
     container_name: streamia-mongodb
@@ -21,10 +26,11 @@ services:
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s        # Increased from 5s
+      retries: 10         # Increased from 5
+      start_period: 40s   # <--- ADD THIS: Gives Mongo 40s to boot before counting failures
 
-  # Redis - Caching and sessions
+  # Redis
   redis:
     image: redis:7-alpine
     container_name: streamia-redis
@@ -41,15 +47,16 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 20s   # <--- ADD THIS
 
-  # RabbitMQ - Message broker for choreography
+  # RabbitMQ
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: streamia-rabbitmq
     restart: unless-stopped
     ports:
-      - "5672:5672"   # AMQP port
-      - "15672:15672" # Management UI
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: streamia
       RABBITMQ_DEFAULT_PASS: streamia
@@ -61,8 +68,9 @@ services:
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s        # Increased from 5s
+      retries: 10         # Increased from 5
+      start_period: 40s   # <--- ADD THIS: RabbitMQ is slow to start
 
   # ===========================================
   # API Gateway
@@ -145,8 +153,6 @@ services:
       REDIS_URL: redis://redis:6379
       RABBITMQ_URL: amqp://streamia:streamia@rabbitmq:5672
     depends_on:
-      mongodb:
-        condition: service_healthy
       redis:
         condition: service_healthy
       rabbitmq:
