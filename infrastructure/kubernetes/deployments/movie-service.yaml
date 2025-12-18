@@ -1,45 +1,44 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: user-service
+  name: movie-service
   namespace: streamia
   labels:
     app: streamia
-    service: user-service
+    service: movie-service
 spec:
   replicas: 2
   selector:
     matchLabels:
       app: streamia
-      service: user-service
+      service: movie-service
   template:
     metadata:
       labels:
         app: streamia
-        service: user-service
+        service: movie-service
     spec:
       containers:
-        - name: user-service
-          image: andresmg42/streamia-user-service:latest
+        - name: movie-service
+          image: andresmg42/streamia-movie-service:latest
           ports:
-            - containerPort: 3001
-          # Carga todas las variables del ConfigMap
+            - containerPort: 3002
+          # Load all variables from ConfigMap and Secrets
           envFrom:
             - configMapRef:
                 name: streamia-config
-            # También carga todos los secrets
             - secretRef:
                 name: streamia-secrets
           env:
-            # Variables específicas de este servicio
+            # Override and set service-specific variables
             - name: PORT
-              value: "3001"
-            # Mapea MONGODB_URI desde el secret específico
-            - name: MONGODB_URI_USERS
+              value: "3002"
+            # Explicitly map MONGODB_URI_MOVIES from configmap
+            - name: MONGODB_URI_MOVIES
               valueFrom:
                 configMapKeyRef:
                   name: streamia-config
-                  key: MONGODB_URI_USERS
+                  key: MONGODB_URI_MOVIES
           resources:
             requests:
               memory: "128Mi"
@@ -50,7 +49,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /health/live
-              port: 3001
+              port: 3002
             initialDelaySeconds: 15
             periodSeconds: 20
             timeoutSeconds: 5
@@ -58,40 +57,42 @@ spec:
           readinessProbe:
             httpGet:
               path: /health/ready
-              port: 3001
+              port: 3002
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 3
+
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: user-service
+  name: movie-service
   namespace: streamia
   labels:
     app: streamia
-    service: user-service
+    service: movie-service
 spec:
   selector:
     app: streamia
-    service: user-service
+    service: movie-service
   ports:
-    - port: 3001
-      targetPort: 3001
+    - port: 3002
+      targetPort: 3002
       protocol: TCP
   type: ClusterIP
+
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: user-service-hpa
+  name: movie-service-hpa
   namespace: streamia
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: user-service
+    name: movie-service
   minReplicas: 2
   maxReplicas: 10
   metrics:

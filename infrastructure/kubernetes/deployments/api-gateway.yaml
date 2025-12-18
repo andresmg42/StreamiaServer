@@ -20,12 +20,14 @@ spec:
     spec:
       containers:
         - name: api-gateway
-          image: streamia/api-gateway:latest
+          image: andresmg42/gateway:latest
           ports:
             - containerPort: 3000
           envFrom:
             - configMapRef:
                 name: streamia-config
+            - secretRef:
+                name: streamia-secrets
           env:
             - name: PORT
               value: "3000"

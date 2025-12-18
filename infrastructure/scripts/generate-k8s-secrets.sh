@@ -55,7 +55,7 @@ stringData:" > "$output_file"
         
         # Add to secrets (sensitive data)
         case "$key" in
-            JWT_SECRET|JWT_REFRESH_SECRET|MONGODB_*|RABBITMQ_PASSWORD|CLOUDINARY_*|SMTP_PASSWORD)
+            JWT_SECRET|JWT_REFRESH_SECRET|MONGODB_*|RABBITMQ_PASSWORD|CLOUDINARY_API_*|SMTP_PASSWORD|EMAIL_PASS|SMTP_PASS)
                 echo "  $key: \"$value\"" >> "$output_file"
                 ;;
         esac
@@ -88,7 +88,7 @@ data:" > "$output_file"
         
         # Add to configmap (non-sensitive data)
         case "$key" in
-            NODE_ENV|CORS_ORIGIN|*_URL|*_HOST|*_PORT|*_USER|SMTP_FROM)
+            NODE_ENV|CORS_ORIGIN|*_URL|*_HOST|*_PORT|*_USER|*_FROM|*_URI_*|CLOUDINARY_CLOUD_NAME|ORIGIN|PORT|MONGODB_*)
                 # Skip passwords and secrets
                 [[ "$key" == *PASSWORD* || "$key" == *SECRET* ]] && continue
                 echo "  $key: \"$value\"" >> "$output_file"

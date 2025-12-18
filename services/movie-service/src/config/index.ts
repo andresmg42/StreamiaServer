@@ -5,18 +5,18 @@ import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // Fallback: try loading from current working directory
-if (!process.env.MONGODB_URI_USERS) {
+if (!process.env.MONGODB_URI_MOVIES) {
   dotenv.config();
 }
 
 export const config = {
   // Server
-  port: parseInt(process.env.PORT || '3001', 10),
+  port: parseInt(process.env.PORT || '3002', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
-  serviceName: 'user-service',
+  serviceName: 'movie-service',
 
   // MongoDB
-  mongodbUri: process.env.MONGODB_URI_USERS || 'mongodb://localhost:27017/streamia_users',
+  mongodbUri: process.env.MONGODB_URI_MOVIES || 'mongodb://localhost:27017/streamia_movies',
 
   // Redis
   redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
@@ -24,14 +24,7 @@ export const config = {
   // RabbitMQ
   rabbitmqUrl: process.env.RABBITMQ_URL || 'amqp://streamia:streamia@localhost:5672',
 
-  // JWT
-  jwt: {
-    secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key',
-    expiresIn: process.env.JWT_EXPIRES_IN || '15m',
-    refreshSecret: process.env.JWT_REFRESH_SECRET || 'your-super-secret-refresh-key',
-    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
-  },
-
+  
   // CORS
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
 

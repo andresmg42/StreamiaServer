@@ -706,3 +706,392 @@ Cada servicio debe exponer:
 - `GET /health`: Estado general
 - `GET /health/live`: Liveness probe para Kubernetes
 - `GET /health/ready`: Readiness probe (verifica dependencias)
+
+## Guía de Despliegue en Kubernetes
+
+### ⚠️ Consideración Importante: Namespace "streamia"
+
+**TODOS los servicios y despliegues DEBEN estar en el namespace `streamia`.**
+
+Usar otros namespaces causará problemas en las URLs de comunicación entre servicios. Los servicios se resuelven internamente usando el patrón:
+```
+nombre-servicio.namespace.svc.cluster.local
+```
+
+Si cambias de namespace, tendrás que actualizar manualmente todas las URLs en ConfigMaps y Secrets.
+
+**Para evitar problemas:**
+- ✅ Todos los servicios en: `namespace: streamia`
+- ✅ Configurar correctamente el `.env` antes de generar los YAML
+- ✅ No crear servicios en otros namespaces como `default` o `streamia-infra`
+
+### Prerrequisitos
+
+1. **Kubernetes en funcionamiento** (Docker Desktop, Minikube, o cluster cloud)
+2. **kubectl** instalado y configurado
+3. **Archivo .env** con las variables de entorno necesarias
+
+### Paso 1: Preparar las Variables de Entorno
+
+Todas las variables de configuración y secretos deben estar en un archivo `.env` en la carpeta `infrastructure/`:
+
+```bash
+# infrastructure/.env
+
+# MongoDB
+MONGODB_ROOT_USER=streamia
+MONGODB_ROOT_PASSWORD=streamia_secret
+
+# RabbitMQ
+RABBITMQ_USER=streamia
+RABBITMQ_PASSWORD=streamia
+
+# JWT
+JWT_SECRET=tu-jwt-secret-aqui
+JWT_REFRESH_SECRET=tu-refresh-secret-aqui
+
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=tu-cloud-name
+CLOUDINARY_API_KEY=tu-api-key
+CLOUDINARY_API_SECRET=tu-api-secret
+
+# Email/SMTP
+EMAIL_FROM=streamia@example.com
+SMTP_HOST=smtp.sendgrid.net
+SMTP_PORT=587
+SMTP_USER=apikey
+SMTP_PASS=tu-sendgrid-key
+
+# URLs y Puertos
+PORT=3000
+CORS_ORIGIN=http://localhost:5173
+FRONTEND_URL=https://streamia.example.com
+```
+
+### Paso 2: Generar Archivos de Configuración de Kubernetes
+
+Ejecuta el script que convierte el archivo `.env` en archivos YAML de ConfigMap y Secret:
+
+**En Linux/Mac:**
+```bash
+cd infrastructure/scripts
+chmod +x generate-k8s-secrets.sh
+./generate-k8s-secrets.sh
+```
+
+**En Windows (PowerShell):**
+```powershell
+cd infrastructure/scripts
+.\generate-k8s-secrets.ps1
+```
+
+Este script generará los archivos en `infrastructure/kubernetes/generated/`:
+- `configmap-from-env.yaml` - Configuración no sensible
+- `secrets-from-env.yaml` - Secretos (credenciales, API keys, etc.)
+
+**⚠️ Importante:** Asegúrate de que los archivos generados contengan las credenciales correctas antes de desplegar.
+
+### Paso 3: Desplegar la Infraestructura
+
+Ejecuta el script de despliegue que gestiona las tres etapas automáticamente:
+
+**En Linux/Mac:**
+```bash
+cd infrastructure/scripts
+chmod +x deploy-infrastructure.sh
+./deploy-infrastructure.sh
+```
+
+**En Windows (PowerShell):**
+```powershell
+cd infrastructure/scripts
+.\deploy-infrastructure.ps1
+```
+
+#### Etapas de Despliegue Automático
+
+El script ejecuta tres etapas en orden:
+
+**Etapa 1: Configuración de Namespace**
+- Crea el namespace `streamia`
+- Aplica ConfigMaps y Secrets
+
+**Etapa 2: Servicios de Infraestructura** ⏳
+- Despliega MongoDB, Redis y RabbitMQ
+- **Espera hasta que estén listos** (1/1 réplica)
+- Timeout configurable (por defecto 300 segundos)
+
+**Etapa 3: Microservicios**
+- Despliega API Gateway
+- Despliega todos los microservicios (User, Movie, Favorites, Rating, Comment, Notification)
+
+### Estructura de Carpetas Kubernetes
+
+```
+infrastructure/kubernetes/
+├── namespaces/              # Definición de namespaces
+│   └── namespaces.yaml
+├── generated/               # Generado por generate-k8s-secrets.sh
+│   ├── configmap-from-env.yaml
+│   └── secrets-from-env.yaml
+├── global/                  # Servicios globales de infraestructura
+│   ├── mongodb.yaml         # Base de datos
+│   ├── redis.yaml           # Cache
+│   └── rabbitmq.yaml        # Message broker
+└── deployments/             # Microservicios
+    ├── api-gateway.yaml
+    ├── user-service.yaml
+    ├── movie-service.yaml
+    ├── favorites-service.yaml
+    ├── rating-service.yaml
+    ├── comment-service.yaml
+    └── notification-service.yaml
+```
+
+### Paso 4: Verificar el Despliegue
+
+Después de ejecutar el script, verifica que todos los pods estén en ejecución:
+
+```bash
+# Ver todos los pods
+kubectl get pods -n streamia
+
+# Resultado esperado:
+# NAME                                    READY   STATUS    RESTARTS   AGE
+# mongodb-0                              1/1     Running   0          2m
+# redis-0                                1/1     Running   0          2m
+# rabbitmq-0                             1/1     Running   0          2m
+# api-gateway-xxxxx-xxxxx                1/1     Running   0          1m
+# user-service-xxxxx-xxxxx               1/1     Running   0          1m
+# movie-service-xxxxx-xxxxx              1/1     Running   0          1m
+# ... (otros servicios)
+```
+
+Ver logs de un pod específico:
+
+```bash
+kubectl logs -f <pod-name> -n streamia
+
+# Ejemplo:
+kubectl logs -f user-service-xxxxx-xxxxx -n streamia
+```
+
+### Paso 5: Probar Microservicios Localmente
+
+Para acceder a los microservicios desde tu máquina local, usa `port-forward`:
+
+**Redirigir puerto del User Service (3001):**
+```bash
+kubectl port-forward -n streamia service/user-service 3001:3001
+```
+
+Luego accede a: `http://localhost:3001`
+
+**Redirigir puerto del Movie Service (3002):**
+```bash
+kubectl port-forward -n streamia service/movie-service 3002:3002
+```
+
+**Redirigir puerto del API Gateway (3000):**
+```bash
+kubectl port-forward -n streamia service/api-gateway 3000:3000
+```
+
+**Ejemplo: Probar Health Check del User Service**
+```bash
+# Terminal 1: Crear port-forward
+kubectl port-forward -n streamia service/user-service 3001:3001
+
+# Terminal 2: Probar endpoint
+curl http://localhost:3001/health/live
+# Respuesta esperada: {"status":"live"}
+
+curl http://localhost:3001/health/ready
+# Respuesta esperada: {"status":"ready"}
+```
+
+### Configuración de Imágenes Docker
+
+⚠️ **Importante:** Las imágenes Docker de los microservicios deben estar publicadas en **DockerHub** antes de desplegar en Kubernetes.
+
+Cada archivo `.yaml` de microservicio especifica la imagen a usar:
+
+```yaml
+spec:
+  template:
+    spec:
+      containers:
+        - name: user-service
+          image: <tu-usuario-dockerhub>/streamia-user-service:latest
+```
+
+#### Flujo de Desarrollo Local
+
+Si necesitas desarrollar o hacer cambios al **API Gateway** u otros **microservicios**, sigue estos pasos:
+
+**1. Construir la imagen localmente:**
+
+```bash
+# Para API Gateway
+cd gateway/express-gateway
+docker build -t <tu-usuario-dockerhub>/streamia-api-gateway:latest .
+
+# Para un microservicio (ejemplo: user-service)
+cd services/user-service
+docker build -t <tu-usuario-dockerhub>/streamia-user-service:latest .
+
+# Para verificar que se construyó correctamente
+docker images | grep streamia
+```
+
+**2. Probar localmente con Docker:**
+
+```bash
+# Ejecutar la imagen localmente
+docker run -p 3001:3001 \
+  -e MONGODB_URI_USERS="mongodb://streamia:streamia_secret@localhost:27017/streamia_users?authSource=admin" \
+  -e RABBITMQ_URL="amqp://streamia:streamia@localhost:5672" \
+  <tu-usuario-dockerhub>/streamia-user-service:latest
+
+# En otra terminal, probar
+curl http://localhost:3001/health/live
+```
+
+#### Flujo de Implementación Final (Producción)
+
+Una vez que hayas validado tus cambios localmente y estén listos para producción:
+
+**1. Publicar la imagen en Docker Hub:**
+
+```bash
+# Login en Docker Hub (solo la primera vez)
+docker login
+
+# Construir la imagen
+cd services/user-service
+docker build -t <tu-usuario-dockerhub>/streamia-user-service:v1.0.0 .
+
+# Publicar en Docker Hub
+docker push <tu-usuario-dockerhub>/streamia-user-service:v1.0.0
+```
+
+**2. Actualizar la referencia de imagen en el archivo YAML:**
+
+Edita `infrastructure/kubernetes/deployments/user-service.yaml`:
+
+```yaml
+spec:
+  template:
+    spec:
+      containers:
+        - name: user-service
+          image: <tu-usuario-dockerhub>/streamia-user-service:v1.0.0  # ← Actualizar versión
+```
+
+**3. Redeplegar en Kubernetes:**
+
+```bash
+# Aplicar los cambios
+kubectl apply -f infrastructure/kubernetes/deployments/user-service.yaml -n streamia
+
+# Verificar que el nuevo pod se está ejecutando
+kubectl get pods -n streamia -l service=user-service
+
+# Ver logs del nuevo pod
+kubectl logs -f <nuevo-pod-name> -n streamia
+```
+
+#### Actualizar el API Gateway
+
+El mismo proceso aplica para el **API Gateway**:
+
+```bash
+# Desarrollar y probar localmente
+cd gateway/express-gateway
+docker build -t <tu-usuario-dockerhub>/streamia-api-gateway:v1.0.0 .
+docker run -p 3000:3000 <tu-usuario-dockerhub>/streamia-api-gateway:v1.0.0
+
+# Publicar en Docker Hub
+docker push <tu-usuario-dockerhub>/streamia-api-gateway:v1.0.0
+
+# Actualizar infrastructure/kubernetes/deployments/api-gateway.yaml
+# Reemplazar imagen: <tu-usuario-dockerhub>/streamia-api-gateway:v1.0.0
+
+# Redeplegar
+kubectl apply -f infrastructure/kubernetes/deployments/api-gateway.yaml -n streamia
+```
+
+#### Buenas Prácticas
+
+- **Versionado de Imágenes**: Usa versiones semánticas (`v1.0.0`, `v1.0.1`) en lugar de `latest` para producción
+- **Tags Múltiples**: Puedes usar tanto `latest` como versiones específicas:
+  ```bash
+  docker tag <tu-usuario-dockerhub>/streamia-user-service:v1.0.0 <tu-usuario-dockerhub>/streamia-user-service:latest
+  docker push <tu-usuario-dockerhub>/streamia-user-service:v1.0.0
+  docker push <tu-usuario-dockerhub>/streamia-user-service:latest
+  ```
+- **Validar Localmente**: Siempre prueba la imagen localmente antes de publicar en Docker Hub
+- **CI/CD**: Considera configurar GitHub Actions o similar para automatizar este proceso
+
+### Solución de Problemas
+
+**Pod no inicia:**
+```bash
+# Ver descripción detallada del pod
+kubectl describe pod <pod-name> -n streamia
+
+# Ver logs completos
+kubectl logs <pod-name> -n streamia --tail=100
+```
+
+**Imagen no encontrada:**
+```bash
+# Verificar que la imagen esté publicada en Docker Hub
+docker pull <tu-usuario-dockerhub>/streamia-user-service:v1.0.0
+
+# Si falla, construir y publicar nuevamente
+docker build -t <tu-usuario-dockerhub>/streamia-user-service:v1.0.0 .
+docker push <tu-usuario-dockerhub>/streamia-user-service:v1.0.0
+```
+
+**Fallan health checks:**
+- Verifica que los endpoints `/health/live` y `/health/ready` estén implementados
+- Aumenta el timeout inicial con `initialDelaySeconds` en el YAML
+
+**Servicios no se comunican:**
+- Verifica que estén en el mismo namespace
+- Usa los nombres de servicio como hostname (ej: `mongodb:27017`)
+- Verifica las variables de entorno con `kubectl describe pod <pod-name>`
+
+---
+
+## Conclusión
+
+Esta arquitectura de microservicios para Streamia ofrece:
+
+| Beneficio | Descripción |
+|-----------|-------------|
+| **Escalabilidad** | Cada servicio escala independientemente según demanda |
+| **Resiliencia** | Fallos aislados, sin cascadas con Circuit Breaker |
+| **Mantenibilidad** | Equipos pueden trabajar en servicios independientes |
+| **Flexibilidad** | Fácil agregar nuevas funcionalidades |
+| **Observabilidad** | Monitoreo completo con los tres pilares |
+
+### Patrones Implementados
+
+- ✅ **Saga Pattern** - Transacciones distribuidas con compensación
+- ✅ **API Gateway** - Punto de entrada único con Express Gateway
+- ✅ **Circuit Breaker** - Prevención de fallos en cascada
+- ✅ **Database per Service** - Independencia de datos
+- ✅ **Choreography** - Comunicación desacoplada vía eventos
+
+### Próximos Pasos
+
+1. Configurar repositorio con estructura de carpetas
+2. Implementar User Service como primer microservicio
+3. Configurar RabbitMQ y definir eventos
+4. Implementar Express Gateway
+5. Configurar Docker Compose para desarrollo local
+6. Implementar resto de microservicios
+7. Configurar Kubernetes para producción
+8. Implementar observabilidad
