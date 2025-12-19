@@ -98,7 +98,9 @@ export function createProxyRoutes(): Router {
   router.use(
     '/ratings',
     circuitBreakerMiddleware('rating-service'),
-    createProxyMiddleware(createProxyOptions(config.services.rating, 'ratings'))
+    createProxyMiddleware({...createProxyOptions(config.services.rating, 'ratings'),
+      pathRewrite: { '^': '/api/v1/ratings' }
+    }),
   );
 
   // Comment Service
